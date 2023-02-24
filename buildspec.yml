@@ -1,0 +1,161 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto8
+      
+  pre_build:
+    commands:
+    
+      - echo "###############################################################"
+      - echo "Instaling Selenium Test Run Cases Packages on Linux Server"
+      - echo "###############################################################"
+      
+      - echo Installing Google-chrome and Chrome Driver on `date`
+      - yum update -y && yum install wget && yum install -y testng && yum install -y tree
+      - curl https://intoli.com/install-google-chrome.sh | bash
+      - mv /usr/bin/google-chrome-stable /usr/bin/google-chrome
+      - wget https://chromedriver.storage.googleapis.com/109.0.5414.74/chromedriver_linux64.zip
+      - unzip chromedriver_linux64.zip
+      - mv chromedriver /usr/bin/chromedriver
+      - chown root:root /usr/bin/chromedriver
+      - chmod +x /usr/bin/chromedriver
+      - yum install -y google-chrome-stable
+      - wget https://selenium-release.storage.googleapis.com/3.13/selenium-server-standalone-3.13.0.jar
+      - google-chrome --version
+      - chromedriver --version
+      
+      - echo "####################################"
+      - echo "Install Trivy Image Scaning Tool"
+      - echo "####################################"
+      
+      - echo install aquasecurity/trivy for image scan
+      - curl -L https://github.com/aquasecurity/trivy/releases/download/v0.14.0/trivy_0.14.0_Linux-64bit.tar.gz | tar xz
+      - mv trivy /usr/local/bin/
+      
+  build:
+    commands:
+
+      - echo "######################################"
+      - echo "AWS CLI Installing on Linux Server"
+      - echo "######################################"
+      
+      - echo Build started on `date`
+      - echo Installing AWS CLI
+      - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && unzip awscliv2.zip
+      - ./aws/install && aws --version
+      - mkdir /root/.aws
+      - cp -r $CODEBUILD_SRC_DIR/credentials ~/.aws/credentials
+     
+      - echo "################################################################################"
+      - echo "SonarQube-Scanner Download and Configure SonarQube-Scanner with Sonar Server"
+      - echo "################################################################################"
+      
+      - mkdir /downloads/sonarqube -p
+      - cd /downloads/sonarqube
+      - wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.2.0.1873-linux.zip
+      - unzip sonar-scanner-cli-4.2.0.1873-linux.zip
+      - mv sonar-scanner-4.2.0.1873-linux /opt/sonar-scanner
+      - echo -e "sonar.host.url=http://52.66.153.58:9000/ \n  sonar.sourceEncoding=UTF-8 \n sonar.qualitygate.wait=true " >> /opt/sonar-scanner/conf/sonar-scanner.properties
+      - echo -e "#/bin/bash \n export PATH='$PATH:/opt/sonar-scanner/bin'" >> /etc/profile.d/sonar-scanner.sh
+      - source /etc/profile.d/sonar-scanner.sh
+      - sonar-scanner -v
+      
+      - echo SonarScanner started on `date`
+      - cd ../..
+      - cd /codebuild/output/
+      - cd $CODEBUILD_SRC_DIR
+      
+      #- echo "######################"
+      #- echo "Application Build"
+      #- echo "######################"
+      
+      #- mvn clean install
+      
+      - echo "##############################"
+      - echo "OWASP Dependency Check (SCA)"
+      - echo "##############################"
+      
+      #- mvn clean install dependency-check:check -Dformat=XML package
+      #- mvn test
+      #- aws s3 cp target/dependency-check-report.html s3://dep-junit-selenuim-reports/
+      
+      - echo "############################################"
+      - echo "Sonar Quality gate check and Scanning"
+      - echo "###########################################"
+      
+      #- sonar-scanner -Dsonar.projectKey=test -Dsonar.sources=. -Dsonar.java.binaries=target/* -Dsonar.qualitygate.wait=true  -Dsonar.host.url=http://52.66.153.58:9000  -Dsonar.login=6c842b220c3b77b12e601ba932610013d3abec9e > sonar_scanreport.json
+      #- S0NAR_TOKEN=6c842b220c3b77b12e601ba932610013d3abec9e
+      #- QUALITY_GATE_STATUS=$(curl -s "http://52.66.153.58:9000/api/qualitygates/project_status?projectKey=test" -u "$SONAR_TOKEN")
+      #- if [[ $QUALITY_GATE_STATUS = *"ERROR"* ]]; then exit 1; fi
+      
+      - echo "##############"
+      - echo "Unit Testing"
+      - echo "##############"
+      - mvn test
+      - mv target/surefire-reports/index.html target/surefire-reports/junit-report.html
+      - aws s3 cp target/surefire-reports/junit-report.html s3://dep-junit-selenuim-reports/
+      
+      - echo "################"
+      - echo "Code Coverage"
+      - echo "###############"
+      
+      - mvn clean test jacoco:report
+      - mv target/site/jacoco/index.html target/site/jacoco/CodeCoverage-report.html
+      - aws s3 cp target/site/jacoco/CodeCoverage-report.html s3://dep-junit-selenuim-reports/
+
+      - echo "#########################"
+      - echo "Create Deployment Package"
+      - echo "#########################"
+      - mvn package
+      
+  post_build:
+    commands:
+      - echo "#####################"
+      - echo "ECR Login Config"
+      - echo "#####################"
+      
+      - aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 975136350146.dkr.ecr.ap-south-1.amazonaws.com
+      - REPOSITORY_URI=975136350146.dkr.ecr.ap-south-1.amazonaws.com/test
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      
+      - echo "#############################################"
+      - echo "Build Docker Image and Push Image To ECR"
+      - echo "#############################################"
+      
+      - docker build -t 975136350146.dkr.ecr.ap-south-1.amazonaws.com/test .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+      - docker push 975136350146.dkr.ecr.ap-south-1.amazonaws.com/test:$IMAGE_TAG
+      - echo writing image definition file..
+      - printf '[{"name":"samplenode","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - cat imagedefinitions.json
+      
+      - echo "################################################################"
+      - echo "Image Scaning Using Trivy and Report File Store On S3 Bucket"
+      - echo "################################################################"
+      
+      - trivy $REPOSITORY_URI:$IMAGE_TAG > image-scan-report.html
+      - trivy -v
+      - trivy --no-progress --exit-code 0 --severity HIGH,CRITICAL --auto-refresh $REPOSITORY_URI:$IMAGE_TAG
+      - aws s3 cp image-scan-report.html s3://dep-junit-selenuim-reports/
+      #- aws ecs update-service --cluster Test --service Test --force-new-deployment
+      #- tree target
+      - ls -lrt
+
+reports:
+    jacoco:
+         files:
+           - "**/*.html"
+
+         base-directory: 'target/site/jacoco'
+         discard-paths: yes
+     
+artifacts:
+  files:
+    - target/MoonPageWebApp.war
+    - scripts/*
+    - imagedefinitions.json
+    #- appspec.yml
+  discard-paths: yes

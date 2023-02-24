@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<suite name="Selenium-Test-Cases">
+    <test name="testFactory">
+        <classes>
+            <class name="FactoryTest" />
+        </classes>
+    </test>
+    <test name="testDataProvider">
+        <classes>
+            <class name="DataProviderTest" />
+        </classes>
+    </test>
+    <test name="testCaculate">
+        <classes>
+            <class name="CalculatorTestSuccessful" />
+        </classes>
+    </test>
+    <test name="testMessagePrintout">
+        <classes>
+            <class name="WelcomeMessageTest" />
+        </classes>
+    </test>
+    <test name="TestClass">        
+        <classes>
+            <class name="TestClass" />
+        </classes>
+    </test>
+    <test name="TestClassSecond">
+        <classes>
+            <class name="TestClassSecond" />
+        </classes>
+    </test>
+    <test name="testOpenBrowserOnChrome">
+        <classes>
+            <class name="OpenBrowser" />
+        </classes>
+    </test>
+</suite>

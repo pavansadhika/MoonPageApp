@@ -91,7 +91,7 @@ jobs:
       - name: Scan Docker Image
         run: |
            trivy image ${IMAGE_NAME}:${IMAGE_TAG} > image-scan-report.html
-           trivy --no-progress --exit-code 0 --severity HIGH,CRITICAL --auto-refresh $IMAGE_NAME:$IMAGE_TAG
+           # trivy --no-progress --exit-code 0 --severity HIGH,CRITICAL --auto-refresh $IMAGE_NAME:$IMAGE_TAG
       - name: Upload scan results
         uses: actions/upload-artifact@v2
         with:

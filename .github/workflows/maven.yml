@@ -113,7 +113,7 @@ jobs:
            chmod +x ./scripts/InstallChrome.sh
            ./scripts/InstallChrome.sh 
       - name: Build with Maven
-        run: mvn verify --file=selenium-pom.xml
+        run: mvn verify --file selenium-pom.xml
       - name: upload all test files
         uses: actions/upload-artifact@v2
         with:

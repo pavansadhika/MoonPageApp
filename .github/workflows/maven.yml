@@ -110,7 +110,7 @@ jobs:
         distribution: adopt
         cache: maven
     - name: Maven Build 
-      run: mvn clean package
+      run: sudo mvn clean package
       
     - name: Install Docker
       run: |

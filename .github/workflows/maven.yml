@@ -117,6 +117,8 @@ jobs:
 
     - name: Start Docker container
       run: |
+           sudo docker stop $(docker ps)
+           sudo docker rm -f $(docker ps)
            sudo docker run -d --name MoonPageApp -p 8080:8080 ${IMAGE_NAME}:${IMAGE_TAG}
 
     - name: Wait for application to start

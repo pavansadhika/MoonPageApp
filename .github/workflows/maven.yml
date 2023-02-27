@@ -11,7 +11,7 @@ env:
    ECS_SERVICE: github-svc
    ECS_TASK_DEFINITION: github-task
 jobs:
-  build:
+  Build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -97,7 +97,25 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
            name: trivy-scan-results
-           path: ./*      
+           path: ./*.html
+  Deploy_QA_Environment:
+    #needs: Build
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: '17'
+      - name: Build JAR
+        run: mvn clean package
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: my-app
+          path: ./target/*.jar
+  
   Selenium-test:
     # needs: build
      runs-on: ubuntu-latest
@@ -120,3 +138,50 @@ jobs:
         with:
          name: selenium-results
          path: ./*
+#Deployment in Staging Environment
+  Deploy_Staging_Environment:
+    needs: Selenium-test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    - name: Deploy to Amazon ECS
+      run: |
+        aws ecs update-service --cluster ${{ env.ECS_CLUSTER }} --service ${{env.ECS_SERVICE}} --task-definition ${{ env.ECS_TASK_DEFINITION }}
+  #Jmeter Testing for load and performance 
+  Performance_Testing:
+    needs: Deploy_Staging_Environment 
+    runs-on: ubuntu-latest
+    steps:
+     - name: Checkout code
+       uses: actions/checkout@v2
+     - name: Setup Java
+       uses: actions/setup-java@v1
+       with:
+          java-version: 11
+     - name: Download and extract JMeter
+       run: |
+         curl -L https://downloads.apache.org/jmeter/binaries/apache-jmeter-5.5.zip -o jmeter.zip
+         unzip jmeter.zip
+     - name: Run JMeter test
+       run: |
+         ./apache-jmeter-5.5/bin/jmeter -n -t test.jmx -l result.jtl
+     - name: Upload test results    
+       uses: actions/upload-artifact@v2
+       with:
+          name: jmeter-test-results
+          path: ./target/*.jtl
+               
+        
+        
+        
+        
+        
+  

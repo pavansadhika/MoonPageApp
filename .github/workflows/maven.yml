@@ -107,18 +107,17 @@ jobs:
       
     - name: Install Docker
       run: |
-        sudo apt-get update
-        sudo apt-get -y install docker.io
+           sudo apt-get update
+           sudo apt-get -y install docker.io
       
     - name: Pull Docker image
       run: |
-        docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-        docker pull ${IMAGE_NAME}:${IMAGE_TAG}
+           sudo docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+           sudo docker pull ${IMAGE_NAME}:${IMAGE_TAG}
 
     - name: Start Docker container
       run: |
-        docker run -d --name MoonPageApp -p 8080:8080 ${IMAGE_NAME}:${IMAGE_TAG}
-
+           sudo docker run -d --name MoonPageApp -p 8080:8080 ${IMAGE_NAME}:${IMAGE_TAG}
 
     - name: Wait for application to start
       run: sleep 30

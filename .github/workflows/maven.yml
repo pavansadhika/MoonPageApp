@@ -125,7 +125,6 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-
   Deploy_QA_Environment:
     #needs: Build
     runs-on: self-hosted
@@ -220,18 +219,13 @@ jobs:
        uses: actions/setup-java@v1
        with:
           java-version: 11
-     - name: Download and extract JMeter
-       run: |
-         curl -L https://downloads.apache.org/jmeter/binaries/apache-jmeter-5.5.zip -o jmeter.zip
-         unzip jmeter.zip
-     - name: Run JMeter test
-       run: |
-         ./apache-jmeter-5.5/bin/jmeter -n -t test.jmx -l result.jtl
+           distribution: adopt
+          cache: maven
      - name: Upload test results    
        uses: actions/upload-artifact@v2
        with:
           name: jmeter-test-results
-          path: ./target/*.jtl
+          path: ./*
                
         
         

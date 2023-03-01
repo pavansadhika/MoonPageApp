@@ -37,7 +37,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-      # SOnarQube Code Quality 
+      # SonarQube Code Quality 
       - name: SonarQube Quality Gate check
         uses: sonarsource/sonarqube-quality-gate-action@master
         # Force to fail step after specific time
@@ -71,7 +71,7 @@ jobs:
           java-version: "11"
           distribution: adopt
           cache: maven
-      - name: Build and Test
+      - name: Junit Test
         run: mvn test
       - name: Upload JUnit Test Results
         uses: actions/upload-artifact@v2
@@ -126,7 +126,6 @@ jobs:
       - name: Scan Docker Image
         run: |
            trivy image ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} > image-scan-report.html
-           trivy --no-progress --exit-code 0 --severity HIGH,CRITICAL --auto-refresh ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
       - name: Upload scan results
         uses: actions/upload-artifact@v2
         with:
@@ -156,3 +155,26 @@ jobs:
           dockerfile: Dockerfile
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+ # Selenium Testing for Generate TestNG Reports
+  Selenium-test:
+   # needs: Deploy_QA_Environment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+      - name:  Install Google Chrome # Using shell script to install Google Chrome
+        run: |
+           chmod +x ./scripts/InstallChrome.sh
+           ./scripts/InstallChrome.sh 
+      - name: Build with Maven
+        run: mvn clean verify --file selenium-pom.xml
+      - name: upload all test files
+        uses: actions/upload-artifact@v2
+        with:
+         name: selenium-results
+         path: ./*          

@@ -20,7 +20,7 @@ jobs:
           distribution: adopt
           cache: maven
       - name: Generate JaCoCo report
-        run: mvn clean test -DforkMode=never jacoco:report
+        run: mvn clean install jacoco:report -DforkMode=never 
       - name: Upload JaCoCo report
         uses: actions/upload-artifact@v2
         with:

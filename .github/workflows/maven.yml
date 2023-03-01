@@ -172,9 +172,9 @@ jobs:
            chmod +x ./scripts/InstallChrome.sh
            ./scripts/InstallChrome.sh 
       - name: Build with Maven
-        run: mvn test 
+        run: mvn clean test 
       - name: upload all test files
         uses: actions/upload-artifact@v2
         with:
          name: selenium-results
-         path: ./*          
+         path: ./target/*         

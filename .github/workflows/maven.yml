@@ -1,5 +1,4 @@
 name: CICD 
-
 on: [push]
 env: 
   DOCKER_IMAGE_NAME: pavan9999/github-actions

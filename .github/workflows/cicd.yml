@@ -1,0 +1,52 @@
+name: CICD 
+
+on: [push]
+env: 
+  DOCKER_IMAGE_NAME: pavan9999/github-actions
+  DOCKER_IMAGE_TAG: MoonPageApp
+jobs:
+  CICD:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK 11
+      uses: actions/setup-java@v2
+      with:
+        java-version: '11'
+        distribution: 'adopt'
+        cache: maven
+    - name: Build with Gradle
+      run: mvn package -DforkMode=never
+
+    - name: Docker-Image-Build 
+        run: |
+            docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+            docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
+            docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+            docker rmi -f ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+    - name: deploying manifest file on k8s cluster 
+      run: | 
+        sed -i "s;imagename;${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG};g" kube.yaml
+        kubectl apply -f kube.yaml
+        sleep 30
+        kubectl get po 
+        
+    - name: verification 
+      run: |
+        sleep 60
+        kubectl run curl --image=curlimages/curl -i --rm --restart=Never -- curl myapp:8080
+    - name: Send email
+      if: always()
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: ${{ github.job }} job of ${{ github.repository }} has ${{ job.status }}
+        # email body as text
+        body: ${{ github.job }} job in worflow ${{ github.workflow }} of ${{ github.repository }} has ${{ job.status }}
+        # comma-separated string, send email to
+        to: pavandevops1213Qgmail.com
+        # from email name
+        from: pavandevops1213Qgmail.com

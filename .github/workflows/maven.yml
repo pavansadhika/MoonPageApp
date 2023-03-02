@@ -19,16 +19,16 @@ jobs:
 
     - name: Docker-Image-Build 
       run: |
-          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-          docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
-          docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
-          docker rmi -f ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+          sudo docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          sudo docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
+          sudo docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+          sudo docker rmi -f ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
     - name: deploying manifest file on k8s cluster 
       run: | 
-        sed -i "s;imagename;${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG};g" kube.yaml
-        kubectl apply -f kube.yaml
+        sudo  -i "s;imagename;${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG};g" kube.yaml
+        sudo kubectl apply -f kube.yaml
         sleep 30
-        kubectl get po 
+        sudo kubectl get po 
         
     - name: verification 
       run: |

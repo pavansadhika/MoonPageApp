@@ -26,7 +26,7 @@ jobs:
     - name: deploying manifest file on k8s cluster 
       run: | 
         sudo sed -i "s;imagename;${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG};g" kube.yml
-        sudo kubectl apply -f kube.yaml
+        sudo kubectl apply -f kube.yml
         sleep 30
         sudo kubectl get po 
         

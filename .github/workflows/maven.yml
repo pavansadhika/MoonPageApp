@@ -1,53 +1,224 @@
-name: CICD 
+name: GITHUB-CICD
 on: [push]
-env: 
-  DOCKER_IMAGE_NAME: pavan9999/github-actions
-  DOCKER_IMAGE_TAG: MoonPageApp
+env:
+   DOCKER_IMAGE_NAME: pavan9999/github-actions
+   DOCKER_IMAGE_TAG: MoonPageApp
+   AWS_REGION: us-east-1
+   ECS_CLUSTER: ecs-cluster
+   ECS_SERVICE: svc
+   ECS_TASK_DEFINITION: taskdefinition
 jobs:
-  CICD:
-    runs-on: self-hosted
+  Build:
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up JDK 11
-      uses: actions/setup-java@v2
-      with:
-        java-version: '11'
-        distribution: 'adopt'
-        cache: maven
-    - name: Build with Gradle
-      run: mvn package -DforkMode=never
-
-    - name: Docker-Image-Build 
-      run: |
+      - uses: actions/checkout@v2
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: "11"
+          distribution: adopt
+          cache: maven
+      - name: Maven Build 
+        run: mvn package -DforkMode=never
+      # Generate artifacts
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: MoonPageApp
+          path: ./target/*.war
+  # SonarQube Code Scan & Analysis and CodeQuality 
+  SonarQube_Scanner:
+    needs: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: SonarQube-Scan Stage
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      # SonarQube Code Quality 
+      - name: SonarQube Quality Gate check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        # Force to fail step after specific time
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  # OWASP Dependency Check(SCA) 
+  OWASPDependencyCheck:
+    needs: SonarQube_Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run dependency check
+        run: mvn org.owasp:dependency-check-maven:check
+      
+      # Upload Dependency check report
+      - name: Upload results
+        uses: actions/upload-artifact@v2
+        with:
+          name: dependency-check-report
+          path: ./target/dependency-check-report.html
+  # Junit Testing reports
+  Junit_Test:
+    needs: OWASPDependencyCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: "11"
+          distribution: adopt
+          cache: maven
+      - name: Junit Test
+        run: mvn test
+      - name: Upload JUnit Test Results
+        uses: actions/upload-artifact@v2
+        with:
+         name: junit-reports
+         path: ./target/surefire-reports/junitreports/*
+  # CodeCoverage for Generate Jacoco reports
+  CodeCoverage:
+    needs: Junit_Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: "11"
+          distribution: adopt
+          cache: maven
+      - name: Generate JaCoCo report
+        run: mvn clean test jacoco:report
+      - name: Upload JaCoCo report
+        uses: actions/upload-artifact@v2
+        with:
+         name: codecoverage-jacoco-report
+         path: ./target/site/jacoco/* 
+  # Build before creating docker image
+  Build_Scan_Docker_Image:
+    needs: CodeCoverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: "11"
+          distribution: adopt
+          cache: maven
+      - name: Build before create image
+        run: mvn clean package
+      # Build Docker image and Push into Docker Hub 
+      - name: Docker-Image-Build 
+        run: |
+            docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+            docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
+        # Docker Image Scan Trivy Tool installing
+      - name: Install Trivy 
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/master/contrib/install.sh | sh -s -- -b /usr/local/bin
+      # Docker Image Scanning
+      - name: Scan Docker Image
+        run: |
+           trivy image ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} > image-scan-report.html
+      - name: Upload scan results
+        uses: actions/upload-artifact@v2
+        with:
+           name: trivy-scan-results
+           path: ./*.html  
+  # Docker Image Push Into Docker Registry
+  Docker_Image_Push: 
+     needs: Build_Scan_Docker_Image
+     runs-on: self-hosted
+     steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: "11"
+          distribution: adopt
+          cache: maven
+      - name: Build before create image
+        run: mvn package -DforkMode=never
+      # Build Docker image and Push into Docker Hub 
+      - name: Docker-Image-Build 
+        run: | 
           sudo docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
           sudo docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
           sudo docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
           sudo docker rmi -f ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
-    - name: deploying manifest file on k8s cluster 
-      run: | 
-        sudo sed -i "s;imagename;${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG};g" kube.yml
-        sudo kubectl apply -f kube.yml
-        sleep 30
-        sudo kubectl get po 
-        
-    - name: verification 
-      run: |
-        sleep 60
-        kubectl run curl --image=curlimages/curl -i --rm --restart=Never -- curl myapp:8080
-    - name: Send email
-      if: always()
-      uses: dawidd6/action-send-mail@v2
+
+  Deploy_QA_Environment:
+     runs-on: self-hosted
+     steps:
+      - uses: actions/checkout@v2
+      - name: deploying manifest file on k8s cluster 
+       run: | 
+         sudo sed -i "s;imagename;${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG};g" kube.yml
+         sudo kubectl apply -f kube.yml
+         sleep 30
+         sudo kubectl get po 
+  #Selenium Testing for Generate TestNG Reports
+  Selenium-test:
+    needs: Deploy_QA_Environment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+      - name:  Install Google Chrome # Using shell script to install Google Chrome
+        run: |
+           chmod +x ./scripts/InstallChrome.sh
+           ./scripts/InstallChrome.sh 
+      - name: Build with Maven
+        run: mvn test -DforkMode=never
+ 
+      - name: upload all test files
+        uses: actions/upload-artifact@v2
+        with:
+         name: selenium-results
+         path: ./*         
+  #Deployment in Staging Environment ECS CLuster
+  Deploy_Staging_Environment:
+    needs: Selenium-test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
       with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{ secrets.EMAIL_USERNAME }}
-        password: ${{ secrets.EMAIL_PASSWORD }}
-        subject: ${{ github.job }} job of ${{ github.repository }} has ${{ job.status }}
-        # email body as text
-        body: ${{ github.job }} job in worflow ${{ github.workflow }} of ${{ github.repository }} has ${{ job.status }}
-        # comma-separated string, send email to
-        to: pavandevops1213Qgmail.com
-        # from email name
-        from: pavandevops1213Qgmail.com
-
-
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    - name: Deploy to Amazon ECS
+      run: |
+        aws ecs update-service --cluster ${{ env.ECS_CLUSTER }} --service ${{env.ECS_SERVICE}} --task-definition ${{ env.ECS_TASK_DEFINITION }}
+        
+  #Jmeter Testing for load and performance 
+  Performance_Testing:
+    #needs: Deploy_Staging_Environment 
+    runs-on: ubuntu-latest
+    steps:
+     - uses: actions/checkout@v2
+     - name: Setup Java
+       uses: actions/setup-java@v1
+       with:
+          java-version: 11
+          distribution: adopt
+          cache: maven
+     - name: Performance Testing
+       run: mvn clean verify -DforkMode=never
+     - name: Upload test results    
+       uses: actions/upload-artifact@v2
+       with:
+          name: jmeter-test-results
+          path: ./*     

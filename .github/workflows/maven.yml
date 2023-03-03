@@ -131,7 +131,7 @@ jobs:
         with:
            name: trivy-scan-results
            path: ./*.html  
-  # Docker Image Push Into Docker Registry
+  #Docker Image Push Into Docker Registry
   Docker_Image_Push: 
      needs: Build_Scan_Docker_Image
      runs-on: self-hosted
@@ -154,6 +154,7 @@ jobs:
           sudo docker rmi -f ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
 
   Deploy_QA_Environment:
+     needs: Docker_Image_Push
      runs-on: self-hosted
      steps:
       - uses: actions/checkout@v2

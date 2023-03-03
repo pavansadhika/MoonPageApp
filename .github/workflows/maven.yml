@@ -158,7 +158,7 @@ jobs:
      steps:
       - uses: actions/checkout@v2
       - name: deploying manifest file on k8s cluster 
-       run: | 
+        run: | 
          sudo sed -i "s;imagename;${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG};g" kube.yml
          sudo kubectl apply -f kube.yml
          sleep 30

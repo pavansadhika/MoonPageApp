@@ -26,7 +26,7 @@ jobs:
         with:
           name: MoonPageApp
           path: ./target/*.war
-  # SonarQube Code Scan & Analysis and CodeQuality 
+  #SonarQube Code Scan & Analysis and CodeQuality 
   SonarQube_Scanner:
     needs: Build
     runs-on: ubuntu-latest
@@ -37,14 +37,14 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-      # SonarQube Code Quality 
+      #SonarQube Code Quality 
       - name: SonarQube Quality Gate check
         uses: sonarsource/sonarqube-quality-gate-action@master
         # Force to fail step after specific time
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-  # OWASP Dependency Check(SCA) 
+  #OWASP Dependency Check(SCA) 
   OWASPDependencyCheck:
     needs: SonarQube_Scanner
     runs-on: ubuntu-latest
@@ -222,4 +222,4 @@ jobs:
        uses: actions/upload-artifact@v2
        with:
           name: jmeter-test-results
-          path: ./*     
+          path: ./target/jmeter/*     

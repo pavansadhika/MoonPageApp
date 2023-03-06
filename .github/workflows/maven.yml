@@ -40,7 +40,7 @@ jobs:
       #SonarQube Code Quality 
       - name: SonarQube Quality Gate check
         uses: sonarsource/sonarqube-quality-gate-action@master
-        # Force to fail step after specific time
+        #Force to fail step after specific time
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -59,7 +59,7 @@ jobs:
         with:
           name: dependency-check-report
           path: ./target/dependency-check-report.html
-  # Junit Testing reports
+  #Junit Testing reports
   Junit_Test:
     needs: OWASPDependencyCheck
     runs-on: ubuntu-latest
@@ -111,18 +111,18 @@ jobs:
           cache: maven
       - name: Build before create image
         run: mvn clean package
-      # Build Docker image and Push into Docker Hub 
+      #Build Docker image and Push into Docker Hub 
       - name: Docker-Image-Build 
         run: |
             docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
             docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
-        # Docker Image Scan Trivy Tool installing
+        #Docker Image Scan Trivy Tool installing
       - name: Install Trivy 
         run: |
           sudo apt-get update
           sudo apt-get install -y curl
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/master/contrib/install.sh | sh -s -- -b /usr/local/bin
-      # Docker Image Scanning
+      #Docker Image Scanning
       - name: Scan Docker Image
         run: |
            trivy image ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} > image-scan-report.html
@@ -145,7 +145,7 @@ jobs:
           cache: maven
       - name: Build before create image
         run: mvn package -DforkMode=never
-      # Build Docker image and Push into Docker Hub 
+      #Build Docker image and Push into Docker Hub 
       - name: Docker-Image-Build 
         run: | 
           sudo docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}

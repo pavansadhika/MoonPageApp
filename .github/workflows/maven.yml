@@ -46,7 +46,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   #OWASP Dependency Check(SCA) 
   OWASPDependencyCheck:
-    needs: SonarQube_Scanner
+    #needs: SonarQube_Scanner
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

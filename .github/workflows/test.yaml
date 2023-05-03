@@ -1,9 +1,8 @@
-  name: Docker
+name: Docker
 on: 
   workflow_dispatch
 jobs:
    Docker_Image_Push: 
-     needs: Build_Scan_Docker_Image
      runs-on: ubuntu-latest
      steps:
       - uses: actions/checkout@v2

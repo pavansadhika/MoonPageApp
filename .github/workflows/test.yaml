@@ -14,10 +14,14 @@ jobs:
           cache: maven
       - name: Build before create image
         run: mvn package -DforkMode=never
-      - name: Build and push Docker image to Amazon ECR
-        uses: docker/build-push-action@v2
+      - name: Deploy to Tomcat
+        uses: appleboy/ssh-action@master
         with:
-         context: .
-         push: false
-         tags: pavan9999/github-actions:latest
-         registry: pavan9999/github-actions
+          host: ${{ secrets.TOMCAT_HOST }}
+          username: ${{ secrets.TOMCAT_USERNAME }}
+          password: ${{ secrets.TOMCAT_PASSWORD }}
+          script: |
+            cd /opt/tomcat/webapps
+            rm -rf RooT
+            cp ${{ github.workspace }}/target/*.war ROOT.war
+            sleep 10

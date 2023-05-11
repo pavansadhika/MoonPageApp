@@ -3,8 +3,6 @@ on: [push]
 env:
    DOCKER_IMAGE_NAME: pavan9999/github-actions
    DOCKER_IMAGE_TAG: MoonPageApp
-   Image = pavan9999/github-actions:MoonPageApp
-   
 jobs:
   #Docker Image Push Into Docker Registry
   build: 

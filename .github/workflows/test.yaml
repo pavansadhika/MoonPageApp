@@ -21,4 +21,9 @@ jobs:
 
     - name: Build and Test
       run: mvn test -DforkMode=never
+    - name: upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+         name: selenium-results
+         path: ./target/surefire-reports/Selenium-Test-Cases/*  
 

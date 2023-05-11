@@ -1,40 +1,24 @@
-name: Deploy to Tomcat
+name: Selenium Test
 
-on: 
+on:
   workflow_dispatch
-env:
-  TOMCAT_VERSION: 9.0.46
-  TOMCAT_HOME: /opt/tomcat
-  TOMCAT_MANAGER_URL: http://20.172.174.204:8080/manager/text
-  #TOMCAT_MANAGER_USERNAME: ${{ secrets.TOMCAT_MANAGER_USERNAME }}
-  #TOMCAT_MANAGER_PASSWORD: ${{ secrets.TOMCAT_MANAGER_PASSWORD }}
-  APP_NAME: MoonPageWebApp
-  APP_WAR: MoonPageWebApp.war
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+    - uses: actions/checkout@v2
 
-    - name: Setup Java
+    - name: Setup JDK
       uses: actions/setup-java@v1
       with:
-        java-version: '11'
-    - name: build 
-      run: mvn package -DforkMode=never
-    - name: Download Tomcat
-      run: |
-        wget https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz
-        tar -xzf apache-tomcat-${TOMCAT_VERSION}.tar.gz
-        mv apache-tomcat-${TOMCAT_VERSION} ${TOMCAT_HOME}
+        java-version: 11
 
-    - name: Copy WAR file to Tomcat webapps directory
-      run: cp ${GITHUB_WORKSPACE}/target/${{ env.APP_WAR }} ${TOMCAT_HOME}/webapps/${{ env.APP_NAME }}.war
+    - name: Setup Chrome
+      uses: nanasess/setup-chromedriver@v1
+      with:
+        chromedriver-version: 92.0.4515.43
 
-    - name: Deploy application to Tomcat
-      run: |
-        curl "${TOMCAT_MANAGER_URL}/deploy?path=/${APP_NAME}&war=file:${TOMCAT_HOME}/webapps/${APP_NAME}.war"
-        curl "${TOMCAT_MANAGER_URL}/reload?path=/${APP_NAME}"
+    - name: Build and Test
+      run: mvn test -DforkMode=never
+

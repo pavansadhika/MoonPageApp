@@ -1,0 +1,23 @@
+name: My Workflow
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set env variables
+      run: |
+        echo "PK=pavan" >> $GITHUB_ENV
+        echo "GV=Guna" >> $GITHUB_ENV
+    outputs:
+      pk: ${{ env.PK }}
+      gv: ${{ env.GV }}
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Get env variables
+      run: |
+        echo "pk=${{ needs.build.outputs.pk }}"
+        echo "gv=${{ needs.build.outputs.gv }}"

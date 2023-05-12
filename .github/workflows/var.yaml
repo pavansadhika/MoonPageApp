@@ -1,6 +1,6 @@
 name: Variable
 
-on: [push]
+on: workflow_dispatch
 
 jobs:
   myJob:

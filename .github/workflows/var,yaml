@@ -1,20 +1,15 @@
 name: My Workflow
 
-on: push
+on: [push]
+
 jobs:
-  build:
+  myJob:
     runs-on: ubuntu-latest
     steps:
-    - name: Set env variables
-      run: echo "DOCKER_IMAGE_TAG=${{ github.run_number }}" >> $GITHUB_ENV
-    outputs:
-      DOCKER_IMAGE_TAG: ${{ env.DOCKER_IMAGE_TAG }}      
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Get env variables
-      run: |
-	    echo "DOCKER_IMAGE_TAG=${{ needs.build.outputs.DOCKER_IMAGE_TAG }}"
-        sed -i "s;imagename;DOCKER_IMAGE_NAME:${{ github.run_number }};g" kube.yaml
-        cat kube.yaml 
+      - name: Set environment variable
+        run: echo "export DOCKER_IMAGE_TAG=${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Use environment variable
+        run: |
+          echo "DOCKER_IMAGE_TAG is DOCKER_IMAGE_TAG"
+          # Perform some actions using MY_VAR

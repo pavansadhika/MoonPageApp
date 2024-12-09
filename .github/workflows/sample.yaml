@@ -18,21 +18,34 @@ jobs:
           # Get all open PRs in the repository
           prs=$(gh pr list --state open --json number,createdAt --limit 100 --repo ${{ github.repository }})
           echo "PRs: $prs"
-          # Calculate the date 30 days ago
-          date_30_days_ago=$(date -d "30 days ago" --utc +%Y-%m-%dT%H:%M:%SZ)
-          echo "Date 30 days ago: $date_30_days_ago"
+          # Calculate the date 7 days ago
+          date_7_days_ago=$(date -d "7 days ago" --utc +%Y-%m-%dT%H:%M:%SZ)
+          echo "Date 30 days ago: $date_7_days_ago"
 
-          # Filter out PRs older than 30 days
-          old_prs=$(echo "$prs" | jq -r ".[] | select(.createdAt < \"$date_30_days_ago\") | .number")
+          # Filter out PRs older than 7 days
+          old_prs=$(echo "$prs" | jq -r ".[] | select(.createdAt < \"$date_7_days_ago\") | .number")
           echo "Old PRs: $old_prs"
           echo "::set-output name=old_prs::$old_prs"
 
-      - name: Close Old PRs
+ #     - name: Close Old PRs
+  #      if: steps.prs.outputs.old_prs != ''
+  #      run: |
+   #       for pr in ${{ steps.prs.outputs.old_prs }}
+   #       do
+    #        echo "Closing PR #$pr"
+      #      gh pr close $pr --repo ${{ github.repository }}
+      #    done
+      - name: Close Old PRs and Delete Branches
         if: steps.prs.outputs.old_prs != ''
         run: |
+          # Loop through each PR to close and delete the branch
           for pr in ${{ steps.prs.outputs.old_prs }}
           do
             echo "Closing PR #$pr"
             gh pr close $pr --repo ${{ github.repository }}
-          done
 
+            # Get the branch name of the PR
+            branch_name=$(echo "$prs" | jq -r ".[] | select(.number == $pr) | .headRefName")
+            echo "Deleting branch $branch_name"
+            gh api -X DELETE /repos/${{ github.repository }}/git/refs/heads/$branch_name
+          done

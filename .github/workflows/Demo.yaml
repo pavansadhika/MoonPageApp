@@ -1,0 +1,71 @@
+name: Delete 7-Day-Old PRs and Branches
+
+on:
+  schedule:
+    # This will trigger the action once a day at midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  delete_old_prs_and_branches:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Get PRs created 7 days ago and delete them
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the current date in Unix timestamp format
+          current_date=$(date +%s)
+          
+          # Define the GraphQL query to fetch open PRs
+          graphql_query=$(cat <<EOF
+          {
+            repository(owner: "${{ github.repository_owner }}", name: "${{ github.event.repository.name }}") {
+              pullRequests(states: OPEN, first: 100) {
+                edges {
+                  node {
+                    number
+                    title
+                    createdAt
+                    headRef {
+                      name
+                    }
+                  }
+                }
+              }
+            }
+          }
+          EOF
+          )
+
+          # Send the GraphQL query to GitHub API
+          prs_response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -X POST -H "Content-Type: application/json" \
+            -d "{\"query\": \"$graphql_query\"}" \
+            https://api.github.com/graphql)
+
+          # Loop through the PRs and process those created exactly 7 days ago
+          echo "$prs_response" | jq -r '.data.repository.pullRequests.edges[] | 
+            select(.node.createdAt | fromdateiso8601 >= '"$((current_date - 7 * 86400))"' and fromdateiso8601 < '"$((current_date - 6 * 86400))"') | 
+            .node' | while read pr; do
+              pr_number=$(echo $pr | jq -r '.number')
+              pr_title=$(echo $pr | jq -r '.title')
+              pr_branch=$(echo $pr | jq -r '.headRef.name')
+              
+              echo "Closing PR #$pr_number - $pr_title"
+              
+              # Close the PR by updating its state
+              curl -s -X PATCH -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -d '{"state": "CLOSED"}' \
+                "https://api.github.com/repos/${{ github.repository }}/pulls/$pr_number"
+
+              echo "Deleting branch $pr_branch"
+              
+              # Delete the associated branch
+              curl -s -X DELETE -H "Authorization: Bearer $GITHUB_TOKEN" \
+                "https://api.github.com/repos/${{ github.repository }}/git/refs/heads/$pr_branch"
+            done

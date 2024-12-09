@@ -1,1 +1,46 @@
+name: Delete Old PRs
+
+on:
+  schedule:
+    # This will trigger the action once a day at midnight UTC.
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  delete_old_prs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up GitHub CLI
+        uses: cli/cli@v3 # Installs GitHub CLI
+
+      - name: Authenticate with GitHub CLI
+        run: gh auth login --with-token < ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get Open PRs
+        id: prs
+        run: |
+          # Get all open PRs in the repository
+          prs=$(gh pr list --state open --json number,createdAt --limit 100 --repo ${{ github.repository }})
+          echo "PRs: $prs"
+          # Calculate the date 30 days ago
+          date_30_days_ago=$(date -d "30 days ago" --utc +%Y-%m-%dT%H:%M:%SZ)
+          echo "Date 30 days ago: $date_30_days_ago"
+
+          # Filter out PRs older than 30 days
+          old_prs=$(echo "$prs" | jq -r ".[] | select(.createdAt < \"$date_30_days_ago\") | .number")
+          echo "Old PRs: $old_prs"
+          echo "::set-output name=old_prs::$old_prs"
+
+      - name: Close Old PRs
+        if: steps.prs.outputs.old_prs != ''
+        run: |
+          for pr in ${{ steps.prs.outputs.old_prs }}
+          do
+            echo "Closing PR #$pr"
+            gh pr close $pr --repo ${{ github.repository }}
+          done
 

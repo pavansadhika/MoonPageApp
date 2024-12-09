@@ -1,18 +1,58 @@
-name: My Workflow
+name: Delete PRs created 7 days ago
 
-on: push
+on:
+  workflow_dispatch:  # You can trigger this manually
+
 jobs:
-  build:
+  delete-old-prs:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Set env variables
-      run: echo "DOCKER_IMAGE_TAG=${{ github.run_number }}" >> $GITHUB_ENV
-    outputs:
-      DOCKER_IMAGE_TAG: ${{ env.DOCKER_IMAGE_TAG }}      
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Get env variables
-      run: echo "DOCKER_IMAGE_TAG=${{ needs.build.outputs.DOCKER_IMAGE_TAG }}"
-   
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Delete PRs created 7 days ago
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          #!/bin/bash
+
+          # GitHub repository details
+          REPO="pavansadhika/MoonPageApp"  # Replace with your repository name (e.g., "username/repository")
+
+          # GitHub API endpoint to fetch pull requests
+          API_URL="https://api.github.com/repos/$REPO/pulls"
+
+          # Calculate the date 7 days ago in the format "YYYY-MM-DD"
+          SEVEN_DAYS_AGO=$(date -u -d "7 days ago" +'%Y-%m-%d')
+
+          echo "Fetching PRs created exactly 7 days ago (date: $SEVEN_DAYS_AGO)..."
+
+          # Fetch open PRs using GitHub API
+          PRS=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.v3+json" "$API_URL")
+
+          # Check if any PRs were fetched, if not exit early
+          if [ -z "$PRS" ]; then
+            echo "No pull requests found."
+            exit 0
+          fi
+
+          # Loop through each PR and check if it was created 7 days ago and is still open
+          echo "$PRS" | jq -r '.[] | select(.state == "open" and .created_at[:10] == "'$SEVEN_DAYS_AGO'") | .number' | while read PR_NUMBER; do
+            if [ -z "$PR_NUMBER" ]; then
+              echo "No open PRs created exactly 7 days ago found."
+              continue
+            fi
+
+            echo "Found open PR created 7 days ago with number: #$PR_NUMBER"
+
+            # Send DELETE request to remove the PR
+            DELETE_URL="https://api.github.com/repos/$REPO/pulls/$PR_NUMBER"
+            DELETE_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.v3+json" "$DELETE_URL")
+
+            if [ "$DELETE_RESPONSE" -eq 204 ]; then
+              echo "Successfully deleted PR #$PR_NUMBER"
+            else
+              echo "Failed to delete PR #$PR_NUMBER, status code: $DELETE_RESPONSE"
+            fi
+          done

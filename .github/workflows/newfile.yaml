@@ -1,7 +1,7 @@
 name: New_Delete_PRs_older_than_7days
 
 on:
-  workflow_dispatch: # Allow manual triggering from GitHub Actions UI
+  workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'  # This will run daily at midnight UTC
 

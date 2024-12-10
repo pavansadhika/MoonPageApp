@@ -11,7 +11,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Install JQ (JSON Processor)
-        run: apt-get install jq -y
+        run: sudo apt-get install jq -y
       
       - name: Get list of Open PRs older than 7 days
         id: prs

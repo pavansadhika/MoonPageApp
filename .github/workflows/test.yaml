@@ -1,0 +1,40 @@
+name: Demo
+on:
+  workflow_dispatch: # Allow manual triggering from GitHub Actions UI
+  schedule:
+    - cron: '0 0 * * *'  # This will run daily at midnight UTC
+
+jobs:
+  delete_old_prs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install jq (JSON processor)
+        run: sudo apt-get install jq
+
+      - name: Get list of PRs older than 7 days
+        id: pr_data
+        run: |
+          # GitHub API configuration
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+          TOKEN="${{ secrets.GITHUB_TOKEN }}"
+
+          # Calculate the date for 7 days ago
+          SEVEN_DAYS_AGO=$(date -d "6 hours ago"  --utc +%Y-%m-%dT%H:%M:%SZ)
+
+          # GitHub API URL for listing PRs
+          API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=open&sort=created&direction=desc"
+
+          # Get all open PRs
+          PRS=$(curl -s -H "Authorization: token $TOKEN" "$API_URL")
+
+          # Filter PRs older than 7 days using jq
+          OLD_PR_TO_DELETE=$(echo "$PRS" | jq -r --arg SEVEN_DAYS_AGO "$SEVEN_DAYS_AGO" '.[] | select(.created_at < $SEVEN_DAYS_AGO) | .number')
+
+          # Output PR numbers to be closed
+          echo "Found PRs to delete: $OLD_PR_TO_DELETE"
+          echo "::set-output name=pr_numbers::$OLD_PR_TO_DELETE"

@@ -1,7 +1,9 @@
-name: Delete Old PRs
+name: New_Delete_PRs_older_than_7days
 
 on:
-  workflow_dispatch: # Allows manual trigger
+  workflow_dispatch: # Allow manual triggering from GitHub Actions UI
+  schedule:
+    - cron: '0 0 * * *'  # This will run daily at midnight UTC
 
 jobs:
   delete_old_prs:
@@ -10,28 +12,58 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Install JQ (JSON Processor)
-        run: sudo apt-get install jq -y
-      
-      - name: Get list of Open PRs older than 7 days
-        id: prs
+
+      - name: Install jq (JSON processor)
+        run: sudo apt-get install jq
+
+      - name: Get list of PRs older than 7 days
+        id: pr_data
         run: |
-          # Get all open PRs in the repository
-          REPO_OWNER="{{ github.repository_owner }}"
-          REPO_NAME="{{ github.event.repository_name }}"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-          # Calculate the date 7 days ago
-          date_7_days_ago=$(date -d "7 days ago" --utc +%Y-%m-%dT%H:%M:%SZ)
-          echo "Date 7 days ago: $date_7_days_ago"
+          # GitHub API configuration
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+          TOKEN="${{ secrets.GITHUB_TOKEN }}"
 
-          # Github API
+          # Calculate the date for 7 days ago
+          SEVEN_DAYS_AGO=$(date -d "7 days ago" --utc +%Y-%m-%dT%H:%M:%SZ)
+
+          # GitHub API URL for listing PRs
           API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=open&sort=created&direction=desc"
-          # GET All Open PRS
-          PRS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$API_URL")
 
-          # Filter out PRs older than 7 days
-          old_prs=$(echo "$prs" | jq -r ".[] | select(.createdAt < \"$date_7_days_ago\") | .number")
-          echo "Old PRs: $old_prs"
-          echo "::set-output name=old_prs::$old_prs"
+          # Get all open PRs
+          PRS=$(curl -s -H "Authorization: token $TOKEN" "$API_URL")
 
+          # Filter PRs older than 7 days using jq
+          OLD_PR_TO_DELETE=$(echo "$PRS" | jq -r --arg SEVEN_DAYS_AGO "$SEVEN_DAYS_AGO" '.[] | select(.created_at < $SEVEN_DAYS_AGO) | .number')
+
+          # Output PR numbers to be closed
+          echo "Found PRs to delete: $OLD_PR_TO_DELETE"
+          echo "::set-output name=pr_numbers::$OLD_PR_TO_DELETE"
+
+      - name: Close and delete branches of PRs older than 7 days
+        if: steps.pr_data.outputs.pr_numbers != ''
+        run: |
+          # GitHub API configuration
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+          TOKEN="${{ secrets.GITHUB_TOKEN }}"
+
+          # Get PR numbers from the output of the previous step
+          PR_NUMBERS="${{ steps.pr_data.outputs.pr_numbers }}"
+
+          # Loop over PR numbers and close them
+          for PR_NUMBER in $PR_NUMBERS; do
+            # Close the PR
+            curl -s -X PATCH -H "Authorization: token $TOKEN" \
+              -d '{"state": "closed"}' \
+              "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}"
+
+            echo "Closed PR #$PR_NUMBER"
+
+            # Delete the branch associated with the PR
+            BRANCH_NAME="pr/${PR_NUMBER}"
+            curl -s -X DELETE -H "Authorization: token $TOKEN" \
+              "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/refs/heads/${BRANCH_NAME}"
+
+            echo "Deleted branch for PR #$PR_NUMBER"
+          done

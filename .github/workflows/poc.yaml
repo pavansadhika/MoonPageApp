@@ -13,7 +13,7 @@ jobs:
 
       - name: Delete PRs created 7 days ago
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
         run: |
           #!/bin/bash
 

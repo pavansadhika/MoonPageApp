@@ -21,8 +21,8 @@ jobs:
           REPO="pavansadhika/MoonPageApp"  # Replace with your repository name (e.g., "username/repository")
 
           # GitHub API endpoint to fetch pull requests
-          API_URL="https://api.github.com/repos/$REPO/pulls"
-
+          API_URL="https://api.github.com/repos/$REPO/pulls/$PR_NUMBER"
+        
           # Calculate the date 7 days ago in the format "YYYY-MM-DD"
           SEVEN_DAYS_AGO=$(date -u -d "7 days ago" +'%Y-%m-%d')
 
